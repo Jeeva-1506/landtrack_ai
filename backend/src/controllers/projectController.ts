@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { ProjectModel } from "../models/Project";
-import { isDbConnected, getLegacySeedData } from "../services/dataHelper";
+import { isDbConnected, getLegacySeedData, saveLegacySeedData } from "../services/dataHelper";
 
 export const getProjects = async (req: Request, res: Response) => {
   try {
@@ -39,6 +39,11 @@ export const createProject = async (req: Request, res: Response) => {
       const created = await ProjectModel.create(data);
       return res.status(201).json(created);
     }
+
+    const seed = getLegacySeedData();
+    seed.projects = [data, ...(seed.projects || [])];
+    saveLegacySeedData(seed);
+
     return res.status(201).json(data);
   } catch (err: any) {
     return res.status(500).json({ error: err.message || "Failed to create project" });
@@ -52,7 +57,20 @@ export const updateProject = async (req: Request, res: Response) => {
       const updated = await ProjectModel.findOneAndUpdate({ id: req.params.id }, { $set: data }, { new: true });
       if (updated) return res.json(updated);
     }
-    return res.json({ id: req.params.id, ...data });
+
+    const seed = getLegacySeedData();
+    let updatedProj: any = null;
+    seed.projects = (seed.projects || []).map((p: any) => {
+      if (p.id === req.params.id) {
+        updatedProj = { ...p, ...data };
+        return updatedProj;
+      }
+      return p;
+    });
+    if (!updatedProj) updatedProj = { id: req.params.id, ...data };
+    saveLegacySeedData(seed);
+
+    return res.json(updatedProj);
   } catch (err: any) {
     return res.status(500).json({ error: err.message || "Failed to update project" });
   }
@@ -63,6 +81,11 @@ export const deleteProject = async (req: Request, res: Response) => {
     if (isDbConnected()) {
       await ProjectModel.findOneAndDelete({ id: req.params.id });
     }
+
+    const seed = getLegacySeedData();
+    seed.projects = (seed.projects || []).filter((p: any) => p.id !== req.params.id);
+    saveLegacySeedData(seed);
+
     return res.json({ success: true, message: "Project deleted successfully" });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || "Failed to delete project" });

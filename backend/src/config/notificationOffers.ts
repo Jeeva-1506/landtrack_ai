@@ -8,7 +8,7 @@ export interface NotificationOfferConfig {
   enabled: boolean;
   whatsappNumber?: string;
   email?: string;
-  channels: ("WhatsApp" | "Email")[];
+  channels: ("Email")[];
 }
 
 export interface MaskedOfferConfig {
@@ -17,7 +17,7 @@ export interface MaskedOfferConfig {
   enabled: boolean;
   whatsappMasked?: string;
   emailMasked?: string;
-  channels: ("WhatsApp" | "Email")[];
+  channels: ("Email")[];
 }
 
 export function maskPhoneNumber(phone?: string): string {
@@ -48,12 +48,11 @@ export function isPrototypeMode(): boolean {
   return process.env.PROTOTYPE_NOTIFICATION_MODE === "true";
 }
 
-export function getActiveChannels(): ("WhatsApp" | "Email")[] {
+export function getActiveChannels(): ("Email")[] {
   const envCh = process.env.PROTOTYPE_CHANNELS;
-  if (!envCh) return ["WhatsApp", "Email"];
+  if (!envCh) return ["Email"];
   const list = envCh.split(",").map(s => s.trim().toLowerCase());
-  const res: ("WhatsApp" | "Email")[] = [];
-  if (list.includes("whatsapp")) res.push("WhatsApp");
+  const res: ("Email")[] = [];
   if (list.includes("email")) res.push("Email");
   return res.length > 0 ? res : ["Email"];
 }
@@ -62,7 +61,6 @@ export function getOfferConfigs(): NotificationOfferConfig[] {
   const activeId = getActiveOfferId();
   const channels = getActiveChannels();
 
-  const prototypeWhatsApp = process.env.PROTOTYPE_WHATSAPP_NUMBER || "+917871534167";
   const prototypeEmail = process.env.PROTOTYPE_EMAIL || "jeevaselva0614@gmail.com";
 
   return [
@@ -70,7 +68,6 @@ export function getOfferConfigs(): NotificationOfferConfig[] {
       id: 1,
       name: "Offer 1 (Prototype Active Recipient)",
       enabled: activeId === 1,
-      whatsappNumber: prototypeWhatsApp,
       email: prototypeEmail,
       channels: channels
     },
@@ -78,33 +75,29 @@ export function getOfferConfigs(): NotificationOfferConfig[] {
       id: 2,
       name: "Offer 2 (Future Recipient Group)",
       enabled: false,
-      whatsappNumber: undefined,
       email: undefined,
-      channels: ["WhatsApp", "Email"]
+      channels: ["Email"]
     },
     {
       id: 3,
       name: "Offer 3 (Future Escalation Team)",
       enabled: false,
-      whatsappNumber: undefined,
       email: undefined,
-      channels: ["WhatsApp", "Email"]
+      channels: ["Email"]
     },
     {
       id: 4,
       name: "Offer 4 (Future Regional Authority)",
       enabled: false,
-      whatsappNumber: undefined,
       email: undefined,
-      channels: ["WhatsApp", "Email"]
+      channels: ["Email"]
     },
     {
       id: 5,
       name: "Offer 5 (Future Ministry Secretariat)",
       enabled: false,
-      whatsappNumber: undefined,
       email: undefined,
-      channels: ["WhatsApp", "Email"]
+      channels: ["Email"]
     }
   ];
 }

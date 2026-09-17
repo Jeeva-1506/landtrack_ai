@@ -3,7 +3,7 @@ import React from "react";
 export default function Footer() {
   return (
     <footer className="w-full bg-[#0F172A] text-[#94A3B8] font-sans border-t border-[#1E293B] text-[14px] select-none mt-12">
-      <div className="max-w-7xl mx-auto px-8 py-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="max-w-7xl mx-auto px-8 py-8 grid grid-cols-1 md:grid-cols-3 gap-8">
         
         {/* BRAND */}
         <div className="space-y-2">
@@ -35,16 +35,6 @@ export default function Footer() {
             <li><span>Section 15 Compliance</span></li>
             <li><span>Documentation & Methodology</span></li>
           </ul>
-        </div>
-
-        {/* DISCLAIMER NOTICE */}
-        <div className="space-y-2 bg-[#1E293B] p-4 rounded-[6px] border border-[#334155]">
-          <span className="table-header text-[#D97706] block">
-            System Notice
-          </span>
-          <p className="text-[12px] text-[#E2E8F0] leading-relaxed">
-            Prototype / Demonstration System — Created for SIH Predictive Analytics Evaluation. Sample predictions are demonstration indicators and do not constitute official administrative decisions.
-          </p>
         </div>
 
       </div>

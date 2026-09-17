@@ -3,9 +3,10 @@ import {
   uploadDataset,
   updateNotificationPreferences,
   fetchNotificationConfig,
-  sendPrototypeTestNotification,
   fetchNotificationHistory,
-  sendTestHighRiskEmailAlert
+  fetchUserProfile,
+  updateUserProfile,
+  changeUserPassword
 } from "../api";
 import { NotificationConfigResponse, NotificationHistoryItem } from "../types";
 import {
@@ -16,20 +17,21 @@ import {
   AlertCircle,
   Bell,
   Mail,
-  MessageSquare,
   Save,
   Phone,
-  Send,
   ShieldCheck,
   Clock,
   CheckCheck,
   XCircle,
   Info,
-  Layers,
-  Sparkles,
   Search,
-  Filter,
-  ArrowUpRight
+  User,
+  Key,
+  Camera,
+  Building2,
+  Award,
+  Lock,
+  UserCheck
 } from "lucide-react";
 
 interface SettingsViewProps {
@@ -42,10 +44,22 @@ export default function SettingsView({ onRefreshData, showToast }: SettingsViewP
   const [isUploading, setIsUploading] = useState(false);
   const [uploadLog, setUploadLog] = useState<string | null>(null);
 
-  // Notification Preferences State
+  // Officer Profile State
+  const [name, setName] = useState("R. Subramani");
+  const [email, setEmail] = useState("jeevaselva0614@gmail.com");
   const [phone, setPhone] = useState("+91 7871534167");
-  const [emailEnabled, setEmailEnabled] = useState(true);
-  const [whatsappEnabled, setWhatsappEnabled] = useState(true);
+  const [department, setDepartment] = useState("Revenue & Land Acquisition Department");
+  const [designation, setDesignation] = useState("Special District Revenue Officer (DRO)");
+  const [photoUrl, setPhotoUrl] = useState("https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80");
+  
+  // Password State
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Notification Preferences State
   const [isSavingPrefs, setIsSavingPrefs] = useState(false);
   const [prefs, setPrefs] = useState<Record<string, boolean>>({
     HIGH_DELAY_RISK: true,
@@ -59,24 +73,31 @@ export default function SettingsView({ onRefreshData, showToast }: SettingsViewP
   // Prototype Notification System State
   const [notifConfig, setNotifConfig] = useState<NotificationConfigResponse | null>(null);
   const [notifHistory, setNotifHistory] = useState<NotificationHistoryItem[]>([]);
-  const [isSendingTest, setIsSendingTest] = useState(false);
-  const [isSendingHighRiskTest, setIsSendingHighRiskTest] = useState(false);
-  const [testResult, setTestResult] = useState<any | null>(null);
 
   // Filter state for history log
   const [historySearchTerm, setHistorySearchTerm] = useState("");
-  const [historyFilterChannel, setHistoryFilterChannel] = useState<"ALL" | "EMAIL" | "WHATSAPP">("ALL");
+  const [historyFilterChannel, setHistoryFilterChannel] = useState<"ALL" | "EMAIL">("ALL");
 
   const loadNotificationData = async () => {
     try {
-      const [configData, historyData] = await Promise.all([
+      const [configData, historyData, userProfile] = await Promise.all([
         fetchNotificationConfig(),
-        fetchNotificationHistory()
+        fetchNotificationHistory(),
+        fetchUserProfile().catch(() => null)
       ]);
       setNotifConfig(configData);
       setNotifHistory(historyData);
+      
+      if (userProfile) {
+        if (userProfile.name) setName(userProfile.name);
+        if (userProfile.email) setEmail(userProfile.email);
+        if (userProfile.phone) setPhone(userProfile.phone);
+        if (userProfile.department) setDepartment(userProfile.department);
+        if (userProfile.designation) setDesignation(userProfile.designation);
+        if (userProfile.photoUrl) setPhotoUrl(userProfile.photoUrl);
+      }
     } catch (err) {
-      console.error("Failed to load notification config/history:", err);
+      console.error("Failed to load notification config/history/profile:", err);
     }
   };
 
@@ -84,37 +105,70 @@ export default function SettingsView({ onRefreshData, showToast }: SettingsViewP
     loadNotificationData();
   }, []);
 
-  const handleSendTestNotification = async () => {
-    setIsSendingTest(true);
-    setTestResult(null);
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingProfile(true);
     try {
-      const res = await sendPrototypeTestNotification();
-      setTestResult(res.result);
-      if (showToast) showToast("Multi-channel test notification executed!");
-      await loadNotificationData();
+      const res = await updateUserProfile({
+        name,
+        email,
+        phone,
+        department,
+        designation,
+        photoUrl
+      });
+      if (showToast) showToast(res.message || "Officer Profile updated and saved to database!");
     } catch (err: any) {
-      if (showToast) showToast(`Test send failed: ${err.message}`, "error");
+      if (showToast) showToast(`Profile save error: ${err.message}`, "error");
     } finally {
-      setIsSendingTest(false);
+      setIsSavingProfile(false);
     }
   };
 
-  const handleSendHighRiskEmailTest = async () => {
-    setIsSendingHighRiskTest(true);
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPassword) {
+      if (showToast) showToast("Please enter your current password", "error");
+      return;
+    }
+    if (newPassword.length < 6) {
+      if (showToast) showToast("New password must be at least 6 characters", "error");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      if (showToast) showToast("New password and confirmation do not match", "error");
+      return;
+    }
+
+    setIsChangingPassword(true);
     try {
-      const res = await sendTestHighRiskEmailAlert();
-      if (res.result?.emailResult?.success) {
-        if (showToast) showToast(`🚨 High Risk Email Alert dispatched to ${res.result.emailResult.message.split('to ')[1] || 'recipient'} via Brevo!`);
-      } else if (res.result?.reason === "ALERT_ALREADY_SENT") {
-        if (showToast) showToast(`Duplicate alert lock active for Land #${res.targetLandId}. Alert already dispatched previously.`, "error");
-      } else {
-        if (showToast) showToast(`High Risk Email Alert trigger completed for Land #${res.targetLandId}`);
-      }
-      await loadNotificationData();
+      const res = await changeUserPassword({ currentPassword, newPassword });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      if (showToast) showToast(res.message || "Security Password updated and saved to database!");
     } catch (err: any) {
-      if (showToast) showToast(`High Risk Email trigger error: ${err.message}`, "error");
+      if (showToast) showToast(`Password update error: ${err.message}`, "error");
     } finally {
-      setIsSendingHighRiskTest(false);
+      setIsChangingPassword(false);
+    }
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Photo = reader.result as string;
+        setPhotoUrl(base64Photo);
+        try {
+          await updateUserProfile({ photoUrl: base64Photo });
+          if (showToast) showToast("Profile photo updated and saved to database!");
+        } catch (err) {
+          console.error("Photo auto-save error:", err);
+        }
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -253,7 +307,7 @@ LA1023,NH-55,Villupuram,1.4,Commercial,2,false,true,Paid,4500000,false,false,tru
 
         <div className="flex items-center gap-2">
           <span className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center gap-1.5 shadow-xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             Brevo API Active
           </span>
           <span className="px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold flex items-center gap-1.5 shadow-xs">
@@ -263,219 +317,222 @@ LA1023,NH-55,Villupuram,1.4,Commercial,2,false,true,Paid,4500000,false,false,tru
         </div>
       </div>
 
-      {/* SECTION 1: ENTERPRISE NOTIFICATION CONFIGURATION & TEST CENTER */}
+      {/* SECTION 1: 👤 OFFICER PROFILE SETTINGS */}
       <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 relative overflow-hidden">
         
         {/* HEADER BAR */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
           <div className="flex items-center gap-3.5">
             <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100 shadow-xs">
-              <Bell className="w-6 h-6" />
+              <User className="w-6 h-6 text-blue-600" />
             </div>
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h4 className="text-xl font-extrabold font-['Outfit'] text-slate-900 tracking-tight">
-                  Notification Configuration
+                  👤 Officer Profile & Account Settings
                 </h4>
                 <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5 shadow-xs">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" /> AUTOMATIC ALERTS: ACTIVE (BREVO SMTP)
+                  <UserCheck className="w-4 h-4 text-emerald-600" /> AUTHENTICATED OFFICER
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-1 font-medium">
-                Active recipient routing loaded securely from backend environment (<code className="bg-slate-100 text-slate-700 px-1 py-0.5 rounded font-mono text-[11px]">.env</code>)
+                Manage official credentials, personal details, jurisdiction designation, and security password.
               </p>
             </div>
           </div>
-
-          {/* DUAL ACTION TEST BUTTONS */}
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* BUTTON 1: TRIGGER HIGH RISK EMAIL ALERT */}
-            <button
-              type="button"
-              onClick={handleSendHighRiskEmailTest}
-              disabled={isSendingHighRiskTest}
-              className="px-4 py-2.5 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95"
-            >
-              {isSendingHighRiskTest ? (
-                <>
-                  <RefreshCw className="w-4 h-4 text-rose-100 animate-spin" />
-                  <span>Sending High Risk Email...</span>
-                </>
-              ) : (
-                <>
-                  <Mail className="w-4 h-4 text-rose-100" />
-                  <span>SEND HIGH RISK EMAIL ALERT (BREVO)</span>
-                </>
-              )}
-            </button>
-
-            {/* BUTTON 2: SEND PROTOTYPE TEST NOTIFICATION */}
-            <button
-              type="button"
-              onClick={handleSendTestNotification}
-              disabled={isSendingTest}
-              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95"
-            >
-              {isSendingTest ? (
-                <>
-                  <RefreshCw className="w-4 h-4 text-blue-100 animate-spin" />
-                  <span>Sending Multi-Channel Test...</span>
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4 text-blue-100" />
-                  <span>SEND MULTI-CHANNEL TEST</span>
-                </>
-              )}
-            </button>
-          </div>
         </div>
 
-        {/* DETAILS & ROUTING MATRIX */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        {/* PROFILE GRID: PHOTO + FORM + PASSWORD */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {/* Active Recipient Box */}
-          <div className="md:col-span-6 bg-slate-50/80 border border-slate-200/80 p-5 rounded-2xl space-y-4">
-            <div className="flex justify-between items-center border-b border-slate-200/80 pb-3">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-                <Layers className="w-4 h-4 text-blue-600" /> Active Channel Routing: <strong className="text-blue-700 font-extrabold text-xs">Offer 1 Active</strong>
-              </span>
-              <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-md text-[10px] font-extrabold uppercase tracking-wider">
-                ACTIVE
-              </span>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
-                <span className="font-bold flex items-center gap-2.5 text-slate-700">
-                  <MessageSquare className="w-4 h-4 text-emerald-600" /> WhatsApp Recipient:
-                </span>
-                <span className="font-mono font-extrabold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 text-xs">
-                  {notifConfig?.recipient.whatsappMasked || "+91*******167"}
-                </span>
+          {/* PROFILE DETAILS FORM (8 COLS) */}
+          <div className="lg:col-span-8 space-y-6">
+            <form onSubmit={handleSaveProfile} className="space-y-5">
+              
+              {/* Profile Photo Section */}
+              <div className="flex flex-col sm:flex-row items-center gap-5 p-4 bg-slate-50/80 border border-slate-200/80 rounded-2xl">
+                <div className="relative group">
+                  <img
+                    src={photoUrl}
+                    alt="Officer Profile"
+                    className="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-md ring-2 ring-blue-500/30"
+                  />
+                  <label className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                    <Camera className="w-5 h-5" />
+                    <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                  </label>
+                </div>
+                <div className="space-y-1.5 text-center sm:text-left">
+                  <div className="flex items-center gap-2 justify-center sm:justify-start">
+                    <h5 className="font-extrabold text-slate-900 text-sm">{name}</h5>
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-[10px] font-bold rounded">Active DRO</span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium">{designation}</p>
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl cursor-pointer shadow-2xs transition-colors">
+                    <Camera className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Upload New Photo</span>
+                    <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                  </label>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
-                <span className="font-bold flex items-center gap-2.5 text-slate-700">
-                  <Mail className="w-4 h-4 text-blue-600" /> Email Recipient (Brevo API):
-                </span>
-                <span className="font-mono font-extrabold text-blue-800 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 text-xs">
-                  {notifConfig?.recipient.emailMasked || "j***@gmail.com"}
-                </span>
+              {/* Form Fields: Name, Email, Phone, Department, Designation */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-semibold">
+                
+                {/* 1. Name */}
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1.5 flex items-center gap-1.5 text-xs">
+                    <User className="w-4 h-4 text-blue-600" />
+                    <span>Full Officer Name</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="R. Subramani"
+                    className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-800 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none shadow-2xs transition-all"
+                  />
+                </div>
+
+                {/* 2. Email */}
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1.5 flex items-center gap-1.5 text-xs">
+                    <Mail className="w-4 h-4 text-blue-600" />
+                    <span>Official Email Address (Brevo Alert Recipient)</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="jeevaselva0614@gmail.com"
+                    className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-800 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none shadow-2xs transition-all"
+                  />
+                </div>
+
+                {/* 3. Phone */}
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1.5 flex items-center gap-1.5 text-xs">
+                    <Phone className="w-4 h-4 text-blue-600" />
+                    <span>Contact Phone Number</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+91 7871534167"
+                    className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-800 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none shadow-2xs transition-all"
+                  />
+                </div>
+
+                {/* 4. Department */}
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1.5 flex items-center gap-1.5 text-xs">
+                    <Building2 className="w-4 h-4 text-blue-600" />
+                    <span>Government Department</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    placeholder="Revenue & Land Acquisition Department"
+                    className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-800 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none shadow-2xs transition-all"
+                  />
+                </div>
+
+                {/* 5. Designation */}
+                <div className="sm:col-span-2">
+                  <label className="block text-slate-700 font-semibold mb-1.5 flex items-center gap-1.5 text-xs">
+                    <Award className="w-4 h-4 text-blue-600" />
+                    <span>Officer Designation & Jurisdiction</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={designation}
+                    onChange={(e) => setDesignation(e.target.value)}
+                    placeholder="Special District Revenue Officer (DRO)"
+                    className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-800 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none shadow-2xs transition-all"
+                  />
+                </div>
               </div>
 
-              <div className="flex items-center justify-between pt-2 border-t border-slate-200/80">
-                <span className="text-xs text-slate-600 font-semibold flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Automated Risk Trigger:
-                </span>
-                <span className="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg text-[11px] font-extrabold">
-                  Risk Score ≥ 70% → Auto Email Alert
-                </span>
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isSavingProfile}
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{isSavingProfile ? "Saving Profile..." : "Save Profile Details"}</span>
+                </button>
               </div>
-            </div>
+            </form>
           </div>
 
-          {/* Infrastructure Gateway Matrix */}
-          <div className="md:col-span-6 bg-slate-50/80 border border-slate-200/80 p-5 rounded-2xl space-y-4">
-            <div className="border-b border-slate-200/80 pb-3 flex justify-between items-center">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700">Email & SMS Providers Status</span>
-              <span className="text-[10px] text-emerald-700 font-extrabold bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
-                ONLINE
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1 shadow-xs">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-slate-800">Brevo Email API</span>
-                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded text-[10px] font-extrabold">
-                    CONNECTED
-                  </span>
-                </div>
-                <p className="text-[10px] text-slate-500 font-mono">SMTP Relay API Key Validated</p>
+          {/* CHANGE PASSWORD CARD (4 COLS) */}
+          <div className="lg:col-span-4 bg-slate-50/90 border border-slate-200/90 p-5 rounded-2xl space-y-4 font-sans">
+            <div className="flex items-center gap-2.5 border-b border-slate-200/80 pb-3">
+              <div className="p-2 bg-amber-100 text-amber-800 rounded-xl">
+                <Lock className="w-4 h-4" />
               </div>
-
-              <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1 shadow-xs">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-slate-800">WhatsApp Cloud API</span>
-                  <span className="px-2 py-0.5 bg-blue-100 text-blue-800 border border-blue-200 rounded text-[10px] font-extrabold">
-                    ACTIVE
-                  </span>
-                </div>
-                <p className="text-[10px] text-slate-500 font-mono">Meta Business Webhook Live</p>
-              </div>
-
-              <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1 shadow-xs">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-slate-700">Resend Fallback</span>
-                  <span className="px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded text-[10px] font-semibold">
-                    STANDBY
-                  </span>
-                </div>
-                <p className="text-[10px] text-slate-500 font-mono">Secondary Gateway Ready</p>
-              </div>
-
-              <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1 shadow-xs">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-slate-700">NIC Gov Gateway</span>
-                  <span className="px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded text-[10px] font-semibold">
-                    READY
-                  </span>
-                </div>
-                <p className="text-[10px] text-slate-500 font-mono">NIC SMS Integration Ready</p>
+              <div>
+                <h5 className="font-extrabold text-slate-900 text-sm font-['Outfit']">Change Password</h5>
+                <p className="text-[11px] text-slate-500 font-medium">Update account security credentials</p>
               </div>
             </div>
 
-            <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
-              * Email notifications automatically format 11 structured sections with actual database values.
-            </p>
+            <form onSubmit={handleChangePassword} className="space-y-3.5 text-xs font-semibold">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1 text-xs">Current Password</label>
+                <input
+                  type="password"
+                  required
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-800 focus:ring-2 focus:ring-amber-500 focus:outline-none shadow-2xs transition-all font-sans"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1 text-xs">New Password</label>
+                <input
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-800 focus:ring-2 focus:ring-amber-500 focus:outline-none shadow-2xs transition-all font-sans"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1 text-xs">Confirm New Password</label>
+                <input
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-800 focus:ring-2 focus:ring-amber-500 focus:outline-none shadow-2xs transition-all font-sans"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isChangingPassword}
+                className="w-full py-2.5 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+              >
+                <Key className="w-3.5 h-3.5 text-amber-400" />
+                <span>{isChangingPassword ? "Updating Password..." : "Update Security Password"}</span>
+              </button>
+            </form>
           </div>
         </div>
-
-        {/* Real-time Test Execution Display */}
-        {testResult && (
-          <div className="p-5 bg-blue-50/60 border border-blue-200 rounded-2xl space-y-4 shadow-sm animate-fade-in">
-            <div className="flex items-center justify-between text-xs border-b border-blue-200/80 pb-3">
-              <span className="font-extrabold text-blue-900 flex items-center gap-2 text-sm">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" /> Last Dispatch Audit Result ({testResult.notificationId})
-              </span>
-              <span className="text-slate-600 font-mono text-xs">{new Date(testResult.createdAt).toLocaleTimeString()}</span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-              <div className="p-3.5 bg-white rounded-xl border border-blue-200/80 space-y-1.5 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-800 flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4 text-emerald-600" /> WhatsApp Channel
-                  </span>
-                  {getStatusBadge(testResult.whatsappStatus, 'WhatsApp')}
-                </div>
-                {testResult.whatsappProviderMessageId && (
-                  <p className="text-[11px] font-mono text-slate-500 pt-1">Provider ID: {testResult.whatsappProviderMessageId}</p>
-                )}
-              </div>
-
-              <div className="p-3.5 bg-white rounded-xl border border-blue-200/80 space-y-1.5 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-800 flex items-center gap-2">
-                    <Mail className="w-4 h-4 text-blue-600" /> Email Channel (Brevo)
-                  </span>
-                  {getStatusBadge(testResult.emailStatus, 'Email')}
-                </div>
-                {testResult.emailProviderMessageId && (
-                  <p className="text-[11px] font-mono text-slate-500 pt-1">Brevo Msg ID: {testResult.emailProviderMessageId}</p>
-                )}
-              </div>
-            </div>
-
-            {testResult.errorMessage && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2.5">
-                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-                <span className="font-medium">{testResult.errorMessage}</span>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* SECTION 2: NOTIFICATION HISTORY AUDIT LOG TABLE */}

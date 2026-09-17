@@ -43,9 +43,57 @@ export function getLegacySeedData(): any {
     }
   }
 
+  const docFile = path.join(__dirname, "../../../database/data/document_dataset.json");
+  const docMap = new Map<string, any>();
+  if (Array.isArray(data.documents)) {
+    data.documents.forEach((d: any) => docMap.set(d.Document_ID || d.id, d));
+  }
+
+  if (fs.existsSync(docFile)) {
+    try {
+      const rawDoc = fs.readFileSync(docFile, "utf-8");
+      const parsedDoc = JSON.parse(rawDoc);
+      if (parsedDoc && Array.isArray(parsedDoc.documents)) {
+        parsedDoc.documents.forEach((d: any) => {
+          // Normalize schema for UI compatibility if needed
+          const normalized = {
+            id: d.Document_ID,
+            name: d.Document_Title,
+            parcelId: d.Parcel_ID || d.Case_ID,
+            surveyNumber: d.Survey_Number,
+            text: d.Extracted_Content,
+            category: d.Document_Category,
+            risk: d.Verification_Status === 'Mismatch' ? 'High' : d.Verification_Status === 'Requires Review' ? 'Medium' : 'Low',
+            verificationStatus: d.Verification_Status,
+            issuesDetected: d.Issue_Detected,
+            confidence: 94,
+            importantTerms: (d.Keywords || "").split(";").map((k: string) => k.trim()),
+            fileType: d.Document_Type,
+            fileSize: `${d.File_Size_KB} KB`,
+            uploadDate: d.Uploaded_Date,
+            ...d
+          };
+          docMap.set(d.Document_ID, normalized);
+        });
+      }
+    } catch (e) {
+      console.error("Error reading document_dataset.json:", e);
+    }
+  }
+
+  data.documents = Array.from(docMap.values());
   const combinedParcels = Array.from(parcelMap.values());
   data.parcels = combinedParcels;
   data.landParcels = combinedParcels;
 
   return data;
+}
+
+export function saveLegacySeedData(updatedData: any): void {
+  const dbFile = path.join(__dirname, "../../../database/data/db.json");
+  try {
+    fs.writeFileSync(dbFile, JSON.stringify(updatedData, null, 2), "utf-8");
+  } catch (e) {
+    console.error("Error writing db.json:", e);
+  }
 }

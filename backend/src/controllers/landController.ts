@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { LandRecordModel } from "../models/LandRecord";
-import { isDbConnected, getLegacySeedData } from "../services/dataHelper";
+import { isDbConnected, getLegacySeedData, saveLegacySeedData } from "../services/dataHelper";
 
 export const getLands = async (req: Request, res: Response) => {
   try {
@@ -79,6 +79,11 @@ export const createLand = async (req: Request, res: Response) => {
       return res.status(201).json(created);
     }
 
+    const seed = getLegacySeedData();
+    seed.parcels = [landData, ...(seed.parcels || [])];
+    seed.landParcels = seed.parcels;
+    saveLegacySeedData(seed);
+
     return res.status(201).json(landData);
   } catch (err: any) {
     return res.status(500).json({ error: err.message || "Failed to create land parcel" });
@@ -92,7 +97,21 @@ export const updateLand = async (req: Request, res: Response) => {
       const updated = await LandRecordModel.findOneAndUpdate({ id: req.params.id }, { $set: landData }, { new: true });
       if (updated) return res.json(updated);
     }
-    return res.json({ id: req.params.id, ...landData });
+
+    const seed = getLegacySeedData();
+    let updatedParcel: any = null;
+    seed.parcels = (seed.parcels || []).map((p: any) => {
+      if (p.id === req.params.id) {
+        updatedParcel = { ...p, ...landData };
+        return updatedParcel;
+      }
+      return p;
+    });
+    if (!updatedParcel) updatedParcel = { id: req.params.id, ...landData };
+    seed.landParcels = seed.parcels;
+    saveLegacySeedData(seed);
+
+    return res.json(updatedParcel);
   } catch (err: any) {
     return res.status(500).json({ error: err.message || "Failed to update land parcel" });
   }
@@ -103,6 +122,12 @@ export const deleteLand = async (req: Request, res: Response) => {
     if (isDbConnected()) {
       await LandRecordModel.findOneAndDelete({ id: req.params.id });
     }
+
+    const seed = getLegacySeedData();
+    seed.parcels = (seed.parcels || []).filter((p: any) => p.id !== req.params.id);
+    seed.landParcels = seed.parcels;
+    saveLegacySeedData(seed);
+
     return res.json({ success: true, message: "Land parcel deleted successfully" });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || "Failed to delete land parcel" });

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import Navbar, { UserProfileData } from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -275,7 +276,7 @@ export default function App() {
             )}
 
             {activeTab === "documents" && (
-              <DocumentsView onUpdateParcel={handleUpdateParcel} showToast={showToast} />
+              <DocumentsView parcels={parcels} projects={projects} onUpdateParcel={handleUpdateParcel} showToast={showToast} />
             )}
 
             {activeTab === "objections" && (

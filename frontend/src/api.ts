@@ -321,5 +321,42 @@ export async function sendReportPdfEmail(payload: {
   return data;
 }
 
+export async function fetchUserProfile(): Promise<any> {
+  const res = await fetch("/api/auth/me");
+  if (!res.ok) throw new Error("Failed to fetch user profile");
+  const data = await res.json();
+  return data.user || data;
+}
+
+export async function updateUserProfile(profileData: {
+  name?: string;
+  email?: string;
+  phone?: string;
+  department?: string;
+  designation?: string;
+  photoUrl?: string;
+}): Promise<any> {
+  const res = await fetch("/api/auth/profile", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(profileData)
+  });
+  if (!res.ok) throw new Error("Failed to update profile in database");
+  return res.json();
+}
+
+export async function changeUserPassword(passwords: { currentPassword: string; newPassword: string }): Promise<any> {
+  const res = await fetch("/api/auth/change-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(passwords)
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.error || "Failed to update password");
+  }
+  return data;
+}
+
 
 

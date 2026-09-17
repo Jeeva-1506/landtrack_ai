@@ -1,23 +1,33 @@
 import { Request, Response } from "express";
 import { DocumentModel } from "../models/Document";
 import { DocumentAiProcessor } from "../services/documentAiService";
+import { isDbConnected, getLegacySeedData } from "../services/dataHelper";
 
 export const getDocuments = async (req: Request, res: Response) => {
   try {
-    const docs = await DocumentModel.find().lean();
-    return res.json(docs);
+    if (isDbConnected()) {
+      const docs = await DocumentModel.find().lean();
+      if (docs && docs.length > 0) return res.json(docs);
+    }
+    const seed = getLegacySeedData();
+    return res.json(seed.documents || []);
   } catch (err: any) {
-    return res.status(500).json({ error: err.message || "Failed to fetch document analyses" });
+    const seed = getLegacySeedData();
+    return res.json(seed.documents || []);
   }
 };
 
 export const getDocumentById = async (req: Request, res: Response) => {
   try {
-    const doc = await DocumentModel.findOne({ id: req.params.id }).lean();
-    if (!doc) {
-      return res.status(404).json({ error: "Document analysis record not found" });
+    if (isDbConnected()) {
+      const doc = await DocumentModel.findOne({ id: req.params.id }).lean();
+      if (doc) return res.json(doc);
     }
-    return res.json(doc);
+    const seed = getLegacySeedData();
+    const found = (seed.documents || []).find((d: any) => (d.id || d.Document_ID) === req.params.id);
+    if (found) return res.json(found);
+
+    return res.status(404).json({ error: "Document analysis record not found" });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || "Failed to fetch document analysis" });
   }

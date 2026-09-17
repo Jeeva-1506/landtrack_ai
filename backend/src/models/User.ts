@@ -7,6 +7,8 @@ export interface IUser extends Document {
   name: string;
   role: 'ADMIN' | 'DISTRICT_OFFICER' | 'REVENUE_OFFICER' | 'SURVEY_OFFICER' | 'LEGAL_OFFICER' | 'VIEWER';
   department?: string;
+  designation?: string;
+  photoUrl?: string;
   district?: string;
   phone?: string;
   emailNotificationsEnabled?: boolean;
@@ -29,6 +31,8 @@ const UserSchema: Schema = new Schema(
       index: true
     },
     department: { type: String, default: 'Land Acquisition Department' },
+    designation: { type: String, default: 'Special District Revenue Officer (DRO)' },
+    photoUrl: { type: String },
     district: { type: String, default: 'All' },
     phone: { type: String, default: '+91 98765 43210' },
     emailNotificationsEnabled: { type: Boolean, default: true },

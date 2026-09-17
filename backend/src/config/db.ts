@@ -6,8 +6,7 @@ dotenv.config();
 export const connectDB = async (): Promise<boolean> => {
   const uri = process.env.MONGODB_URI;
   if (!uri || uri.trim() === "") {
-    console.warn("⚠️ MONGODB_URI environment variable is not defined. Disabling Mongoose query buffering for instant fallback data mode.");
-    mongoose.set('bufferCommands', false);
+    console.warn("⚠️ MONGODB_URI environment variable is not defined. Active in JSON file database mode.");
     return false;
   }
 
@@ -19,8 +18,7 @@ export const connectDB = async (): Promise<boolean> => {
     return true;
   } catch (error: any) {
     console.error("❌ MongoDB connection error:", error.message || error);
-    console.warn("⚠️ Disabling Mongoose query buffering for hybrid JSON/in-memory data fallback mode.");
-    mongoose.set('bufferCommands', false);
+    console.warn("⚠️ MONGODB connection failed. Active in JSON file database mode.");
     return false;
   }
 };

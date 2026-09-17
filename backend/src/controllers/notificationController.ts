@@ -30,7 +30,7 @@ export const getNotificationConfig = async (req: Request, res: Response) => {
         whatsappMasked: maskedWhatsApp,
         emailMasked: maskedEmail
       },
-      channels: ["WhatsApp", "Email"],
+      channels: ["Email"],
       offers
     });
   } catch (err: any) {

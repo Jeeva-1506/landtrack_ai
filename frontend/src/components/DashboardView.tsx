@@ -63,21 +63,28 @@ export default function DashboardView({
   const criticalRiskCount = parcels.filter(p => p.riskLevel === 'Critical').length;
 
   const riskData = [
-    { name: "Low Risk", value: lowRiskCount || 14, color: "#22C55E" },
-    { name: "Medium Risk", value: medRiskCount || 17, color: "#F59E0B" },
-    { name: "High Risk", value: highRiskCount || 37, color: "#FF6B52" },
-    { name: "Critical", value: criticalRiskCount || 4, color: "#EF4444" }
+    { name: "Low Risk", value: lowRiskCount, color: "#22C55E" },
+    { name: "Medium Risk", value: medRiskCount, color: "#F59E0B" },
+    { name: "High Risk", value: highRiskCount, color: "#FF6B52" },
+    { name: "Critical", value: criticalRiskCount, color: "#EF4444" }
   ];
 
-  // Bar Chart Data (Sample 6 Corridors with coral highlight)
-  const barChartData = [
-    { month: "NH-101", count: 78, isHighlight: false },
-    { month: "NH-102", count: 34, isHighlight: false },
-    { month: "PROJ-001", count: 67, isHighlight: true },
-    { month: "PROJ-002", count: 28, isHighlight: false },
-    { month: "PROJ-003", count: 39, isHighlight: false },
-    { month: "PROJ-005", count: 80, isHighlight: false },
-  ];
+  // Dynamic Bar Chart Data from Registered Projects
+  const barChartData = projects.length > 0
+    ? projects.slice(0, 6).map((p) => {
+        const prog = p.progress ?? p.completionRate ?? 50;
+        return {
+          month: p.id,
+          count: prog,
+          isHighlight: (p.delayRisk || p.riskLevel) === 'High' || (p.delayRisk || p.riskLevel) === 'Critical'
+        };
+      })
+    : [
+        { month: "TN-PRJ-001", count: 64, isHighlight: true },
+        { month: "TN-PRJ-002", count: 45, isHighlight: false },
+        { month: "TN-PRJ-003", count: 58, isHighlight: false },
+        { month: "KA-PRJ-001", count: 72, isHighlight: false }
+      ];
 
   return (
     <div className="space-y-6 font-['Plus_Jakarta_Sans',sans-serif] text-[#12241C] pb-12 animate-fade-in">
